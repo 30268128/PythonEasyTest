@@ -1,16 +1,16 @@
 import pygame
 import requests
 import random
+import os
 import json
-
 # Initialize Pygame
 pygame.init()
 
 # Constants
-WIDTH, HEIGHT = 800, 600
+WIDTH, HEIGHT = 1280, 720
 FPS = 60
 PLAYER_COLOR = (0, 128, 255)
-OTHER_PLAYER_COLOR = (0, 255, 0)
+OTHER_PLAYER_COLOR = (random.randint(0,255), random.randint(0,255), random.randint(0,255))
 BACKGROUND_COLOR = (255, 255, 255)
 FONT_COLOR = (0, 0, 0)
 
@@ -39,11 +39,15 @@ font = pygame.font.SysFont(None, 36)
 
 
 class NPC:
+    
     def __init__(self, x, y):
         self.rect = pygame.Rect(x, y, 50, 100)  # NPC position
-
+        self.font = pygame.font.SysFont(None, 24)
     def draw(self):
         pygame.draw.rect(screen, (255, 165, 0), self.rect)  # Draw NPC as a rectangle
+        name_surface = self.font.render("NPC Kumie", True, (0, 0, 0))  # Black text
+        screen.blit(name_surface, (self.rect.centerx - name_surface.get_width() // 2, self.rect.top - 25))
+
 
     def interact(self, player, fish_prices):
         # Check if the player is near enough to interact
@@ -92,7 +96,7 @@ class Player:
     def cast_line(self):
         self.fishing = True
         # Simulate waiting for a fish to bite
-        pygame.time.set_timer(pygame.USEREVENT, 3000)  # Wait for 3 seconds
+        pygame.time.set_timer(pygame.USEREVENT, random.randint(1000,10000)) 
 
     def catch_fish(self):
         self.fishing = False
