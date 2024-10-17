@@ -3,16 +3,20 @@ import requests
 import random
 import os
 import json
+from player import Player
+from npc import NPC
+from chat import Chat
+
 # Initialize Pygame
 pygame.init()
 
 # Constants
-WIDTH, HEIGHT = 1280, 720
+WIDTH, HEIGHT = 1064, 571
 FPS = 60
-PLAYER_COLOR = (0, 128, 255)
 OTHER_PLAYER_COLOR = (random.randint(0,255), random.randint(0,255), random.randint(0,255))
 BACKGROUND_COLOR = (255, 255, 255)
 FONT_COLOR = (0, 0, 0)
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
 
 # Server URL
 SERVER_URL = "http://127.0.0.1:5000"
@@ -31,122 +35,17 @@ fish_prices = {
 
 
 # Create the screen
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Multiplayer Fishing Game")
 
 # Font for displaying inventory and text input
 font = pygame.font.SysFont(None, 36)
 
+# 加載背景圖片
+background_image = pygame.image.load(os.path.join("assets", "background.png"))
 
-class NPC:
-    
-    def __init__(self, x, y):
-        self.rect = pygame.Rect(x, y, 50, 100)  # NPC position
-        self.font = pygame.font.SysFont(None, 24)
-    def draw(self):
-        pygame.draw.rect(screen, (255, 165, 0), self.rect)  # Draw NPC as a rectangle
-        name_surface = self.font.render("NPC Kumie", True, (0, 0, 0))  # Black text
-        screen.blit(name_surface, (self.rect.centerx - name_surface.get_width() // 2, self.rect.top - 25))
-
-
-    def interact(self, player, fish_prices):
-        # Check if the player is near enough to interact
-        if self.rect.colliderect(player.rect):
-            player.sell_fish(fish_prices)
-
-# Player class
-class Player:
-    def __init__(self, player_id, x, y):
-        self.player_id = player_id
-        self.rect = pygame.Rect(x, y, 50, 50)
-        self.fishing = False
-        self.inventory = []
-        self.skill_level = 1  # Starting skill level
-        self.experience = 0
-        self.show_inventory = False  # Whether to display the inventory
-        self.balance = 0
-        self.font = pygame.font.SysFont(None, 24)
-
-    def move(self, dx, dy):
-        if not self.fishing:  # Only allow movement if not fishing
-            self.rect.x += dx
-            self.rect.y += dy
-            self.update_position(dx, dy)
-
-    def update_position(self, dx, dy):
-        # Send the updated position to the server
-        data = {'id': self.player_id, 'dx': dx, 'dy': dy}
-        try:
-            requests.post(f"{SERVER_URL}/update", json=data)
-        except requests.ConnectionError:
-            print("Failed to connect to the server.")
-
-    def draw(self):
-        # Draw the player's rectangle (character)
-        pygame.draw.rect(screen, PLAYER_COLOR, self.rect)
-
-        # Draw the player's name above the rectangle
-        name_surface = self.font.render(self.player_id, True, (0, 0, 0))  # Black text
-        screen.blit(name_surface, (self.rect.centerx - name_surface.get_width() // 2, self.rect.top - 25))
-
-        # If fishing, draw a circle to indicate fishing line
-        if self.fishing:
-            pygame.draw.circle(screen, (255, 0, 0), (self.rect.centerx, self.rect.bottom + 20), 5)
-
-    def cast_line(self):
-        self.fishing = True
-        # Simulate waiting for a fish to bite
-        pygame.time.set_timer(pygame.USEREVENT, random.randint(1000,10000)) 
-
-    def catch_fish(self):
-        self.fishing = False
-        fish = random.choices(FISH_TYPES, weights=[f["catch_probability"] * (1 + self.skill_level * 0.1) for f in FISH_TYPES])[0]
-        if random.random() < fish["catch_probability"]:
-            self.inventory.append(fish["name"])
-            self.experience += 20  # Gain experience for catching fish
-            self.level_up()
-            print(f"You caught a {fish['name']}!")
-        else:
-            print("No fish this time!")
-
-    def level_up(self):
-        if self.experience >= 100:  # Example threshold for leveling up
-            self.skill_level += 1
-            self.experience -= 100  # Reset experience after leveling up
-            print(f"Level Up! New Skill Level: {self.skill_level}")
-
-    def toggle_inventory(self):
-        self.show_inventory = not self.show_inventory  # Toggle inventory display on/off
-
-    def draw_inventory(self):
-        # Draw the inventory as a box on the screen
-        if self.show_inventory:
-            # Background box for inventory
-            pygame.draw.rect(screen, (200, 200, 200), (WIDTH // 4, HEIGHT // 4, WIDTH // 2, HEIGHT // 2))
-            pygame.draw.rect(screen, (0, 0, 0), (WIDTH // 4, HEIGHT // 4, WIDTH // 2, HEIGHT // 2), 2)
-
-            # Display each item in the inventory
-            for i, item in enumerate(self.inventory):
-                text = font.render(f"{i + 1}. {item}", True, FONT_COLOR)
-                screen.blit(text, (WIDTH // 4 + 20, HEIGHT // 4 + 20 + i * 40))
-
-    def sell_fish(self, fish_prices):
-        # Calculate total price of inventory
-        total_value = sum(fish_prices[fish] for fish in self.inventory)
-        self.balance += total_value
-        self.inventory.clear()  # Empty the inventory after selling
-        print(f"Sold all fish for ${total_value}. New balance: ${self.balance}")
-
-    def draw_ui(self):
-        # Draw the player's level and experience
-        level_text = font.render(f"Level: {self.skill_level}", True, FONT_COLOR)
-        screen.blit(level_text, (20, 20))
-        exp_text = font.render(f"EXP: {self.experience}", True, FONT_COLOR)
-        screen.blit(exp_text, (20, 60))
-
-        # Draw the player's balance
-        balance_text = font.render(f"Balance: ${self.balance}", True, FONT_COLOR)
-        screen.blit(balance_text, (20, 100))
+# 加載背景音樂
+pygame.mixer.music.load(os.path.join("assets", "background_music.mp3"))
+pygame.mixer.music.play(-1)  # 循環播放
 
 # Function to handle name input
 def get_player_name():
@@ -179,47 +78,6 @@ def get_player_name():
                     name += event.unicode
 
     return name
-class Chat:
-    def __init__(self, max_messages=5):
-        self.messages = []         # Store chat messages
-        self.current_message = ""  # For typing the current message
-        self.max_messages = max_messages
-        self.chat_active = False   # Whether the chat input is active
-        self.font = pygame.font.SysFont(None, 24)  # Font for chat display
-
-    def handle_input(self, event):
-        # Handle typing input when chat is active
-        if event.key == pygame.K_RETURN:
-            if self.current_message:
-                self.add_message(self.current_message)
-                self.current_message = ""
-                self.chat_active = False  # Exit chat mode after sending message
-        elif event.key == pygame.K_BACKSPACE:
-            self.current_message = self.current_message[:-1]
-        else:
-            self.current_message += event.unicode
-
-    def add_message(self, message):
-        self.messages.append(message)
-        if len(self.messages) > self.max_messages:
-            self.messages.pop(0)  # Remove old messages if exceeded limit
-
-    def toggle_chat(self):
-        # Activate or deactivate chat input mode
-        self.chat_active = not self.chat_active
-
-    def draw(self, screen, width, height):
-        # Draw the chat messages at the bottom left of the screen
-        y_offset = height - 100
-        for message in reversed(self.messages):  # Display recent messages at the bottom
-            message_surface = self.font.render(message, True, (0, 0, 0))  # Black text
-            screen.blit(message_surface, (20, y_offset))
-            y_offset -= 30
-
-        # Draw current input line if chat is active
-        if self.chat_active:
-            input_surface = self.font.render(f"> {self.current_message}", True, (0, 0, 0))
-            screen.blit(input_surface, (20, height - 30))
 
 
 # Function to join the game
@@ -232,7 +90,6 @@ def join_game(player_id):
         print("Failed to connect to the server.")
         return None
 
-# Function to get all players from the server
 def get_all_players():
     try:
         response = requests.get(f"{SERVER_URL}/players")
@@ -241,10 +98,20 @@ def get_all_players():
         print("Failed to connect to the server.")
         return {}
 
+# 繪製其他玩家和名字
+def draw_other_players(player_data, player_id):
+    for pid, pdata in player_data.items():
+        if pid != player_id:
+            # 繪製玩家方塊
+            pygame.draw.rect(screen, OTHER_PLAYER_COLOR, (pdata['x'], pdata['y'], 50, 50))
+
+            # 繪製玩家名字
+            name_surface = font.render(pid, True, (0, 0, 0))  # 黑色文字
+            screen.blit(name_surface, (pdata['x'] + 25 - name_surface.get_width() // 2, pdata['y'] - 25))
 def main():
     clock = pygame.time.Clock()
 
-    # Get player name from in-game input
+    # Get player name from   in-game input
     player_id = get_player_name()
 
     # Join the game with the provided player name (ID)
@@ -288,14 +155,21 @@ def main():
             npc.interact(player, fish_prices)
 
         # Clear the screen
+        
         screen.fill(BACKGROUND_COLOR)
+        screen.blit(background_image, (0, 0))
         player.draw()
-        npc.draw()
+        npc.draw_npc()
         player.draw_ui()
         player.draw_inventory()
+        # Draw other players
+        all_players = get_all_players()
+        draw_other_players(all_players, player_id)
+        player.draw_catch_message()
 
         # Draw chat system
         chat.draw(screen, WIDTH, HEIGHT)
+        
 
         # Draw other players
         all_players = get_all_players()
